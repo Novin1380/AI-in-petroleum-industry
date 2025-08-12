@@ -9,19 +9,16 @@ import time
 import matplotlib.pyplot as plt
 from streamlit_option_menu import option_menu
 
-# ----------------- Page Setup -----------------
 st.set_page_config(
     page_title="Reservoir Production Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ----------------- Caching and Loading Models & Data -----------------
-# (Loading functions remain the same as before)
 @st.cache_resource
 def load_model(path):
     try:
-        return tf.keras.models.load_model(path)
+        return tf.keras.models.load_model(path, compile=False)
     except Exception as e:
         st.error(f"Error loading model from {path}: {e}")
         return None
@@ -54,27 +51,25 @@ def load_history(path):
         st.warning(f"History file not found at {path}. Displaying empty plot.")
         return {'loss': [], 'val_loss': []}
 
-# --- Load all necessary files ---
-model_main = load_model('model_main.keras')
-model_outlier = load_model('model_outlier.keras')
-y_scaler = load_joblib('y_scaler.gz')
-num_scaler = load_joblib('num_scaler.gz')
-image_params = load_joblib('image_params.gz')
-y_scaler_out = load_joblib('y_scaler_out.gz')
-num_scaler_out = load_joblib('num_scaler_out.gz')
-image_params_out = load_joblib('image_params_out.gz')
-history_main = load_history('training_history_main.pkl')
-history_outlier = load_history('training_history_outlier.pkl')
-processed_data = load_data('processed_tabular_data.csv')
-prediction_main = load_data('full_dataset_predictions.xlsx')
-prediction_outlier = load_data('out_dataset_predictions.xlsx')
+model_main = load_model('outputs/model_main.keras')
+model_outlier = load_model('outputs/model_outlier.keras')
+y_scaler = load_joblib('outputs/y_scaler.gz')
+num_scaler = load_joblib('outputs/num_scaler.gz')
+image_params = load_joblib('outputs/image_params.gz')
+y_scaler_out = load_joblib('outputs/y_scaler_out.gz')
+num_scaler_out = load_joblib('outputs/num_scaler_out.gz')
+image_params_out = load_joblib('outputs/image_params_out.gz')
+history_main = load_history('outputs/training_history_main.pkl')
+history_outlier = load_history('outputs/training_history_outlier.pkl')
+processed_data = load_data('outputs/processed_tabular_data.csv')
+prediction_main = load_data('outputs/full_dataset_predictions.xlsx')
+prediction_outlier = load_data('outputs/out_dataset_predictions.xlsx')
 
 if processed_data is not None:
     target_cols = [col for col in processed_data.columns if col not in ['sample number', 'Initial Sw']]
 else:
     target_cols = [f"Target_{i}" for i in range(1, 13)]
 
-# ----------------- Page Definitions -----------------
 
 def page_home():
     st.title("Deep Learning for Reservoir Production Forecasting")
@@ -138,7 +133,6 @@ def page_loss_curves():
 def page_dataset():
     st.header("Processed Tabular Dataset Explorer")
 
-    # Dropdown for dataset selection
     dataset_option = st.selectbox(
         "Select Dataset to View:",
         [
@@ -148,8 +142,7 @@ def page_dataset():
         ]
     )
 
-    # Load and display the selected dataset
-    if dataset_option == "Clean dataset":
+    if dataset_option == "Clean dataset (Pivoted Data)":
         st.write("This table contains the final, cleaned, and pivoted data used for training the models.")
         if processed_data is not None:
             st.dataframe(processed_data)
@@ -226,7 +219,6 @@ def page_live_prediction():
         st.subheader("Input Parameters")
         sw_input = st.number_input("Initial Water Saturation (Sw)", 0.0, 1.0, 0.25, 0.01)
         month_input = st.selectbox("Select Target Month:", [1, 3, 5, 7, 9, 11])
-        # Model selection dropdown
         model_choice = st.selectbox(
             "Select Prediction Model:",
             ("Trained on All Data (Main Model)", "Trained After Outlier Removal"),
@@ -238,13 +230,11 @@ def page_live_prediction():
         poro_file = st.file_uploader("Upload Porosity Map", type=['tiff', 'tif'])
 
     if st.button("Run Forecast", type="primary"):
-        # Select model based on dropdown
         if model_choice == "Trained on All Data (Main Model)":
             selected_model = model_main
             selected_num_scaler = num_scaler
             selected_y_scaler = y_scaler
             selected_image_params = image_params
-            # Normalize with saved parameters (per-channel)
             perm_min, perm_max = selected_image_params['perm_min'], selected_image_params['perm_max']
             poro_min, poro_max = selected_image_params['poro_min'], selected_image_params['poro_max']
         else:
@@ -252,17 +242,14 @@ def page_live_prediction():
             selected_num_scaler = num_scaler_out
             selected_y_scaler = y_scaler_out
             selected_image_params = image_params_out
-            # Normalize with saved parameters (per-channel)
             perm_min, perm_max = selected_image_params['perm_min_out'], selected_image_params['perm_max_out']
             poro_min, poro_max = selected_image_params['poro_min_out'], selected_image_params['poro_max_out']
         if perm_file and poro_file and all([selected_model, y_scaler, num_scaler, image_params]):
             with st.spinner("Processing inputs and running model..."):
                 try:
-                    # 1. Process Images
                     perm_img = Image.open(perm_file)
                     poro_img = Image.open(poro_file)
 
-                    # Ensure both images are the same size and single-channel
                     perm_array = np.array(perm_img, dtype=np.float32)
                     poro_array = np.array(poro_img, dtype=np.float32)
 
@@ -270,13 +257,11 @@ def page_live_prediction():
                         st.error("Permeability and Porosity maps must have the same shape!")
                         return
 
-                    # If images are 2D, add channel axis
                     if perm_array.ndim == 2:
                         perm_array = perm_array[..., np.newaxis]
                     if poro_array.ndim == 2:
                         poro_array = poro_array[..., np.newaxis]
 
-                    # Stack to shape (H, W, 2)
                     combined_image = np.concatenate([perm_array, poro_array], axis=-1)
 
                     
@@ -289,13 +274,10 @@ def page_live_prediction():
 
                     combined_image_scaled = np.nan_to_num(combined_image_scaled)
 
-                    # Add batch dimension: (1, H, W, 2)
                     final_image_input = np.expand_dims(combined_image_scaled, axis=0)
 
-                    # 3. Process Numerical Input
                     final_num_input = selected_num_scaler.transform(np.array([[sw_input]], dtype=np.float32))
 
-                    # 4. Make Prediction (check input names)
                     model_inputs = selected_model.input_names if hasattr(selected_model, "input_names") else [i.name for i in selected_model.inputs]
                     input_dict = {}
                     for name in model_inputs:
@@ -306,11 +288,9 @@ def page_live_prediction():
 
                     prediction_scaled = selected_model.predict(input_dict)
 
-                    # 5. Inverse Transform and Post-Process
                     prediction_original = selected_y_scaler.inverse_transform(prediction_scaled)
-                    prediction_original[prediction_original < 0] = 0  # Clip negative values
+                    prediction_original[prediction_original < 0] = 0
 
-                    # 6. Select Output for the Chosen Month
                     month_to_index = {1: [0, 6], 3: [1, 7], 5: [2, 8], 7: [3, 9], 9: [4, 10], 11: [5, 11]}
                     indices = month_to_index[month_input]
                     cum_oil_pred = prediction_original[0, indices[0]]
@@ -327,7 +307,6 @@ def page_live_prediction():
         else:
             st.error("Please upload both permeability and porosity maps.")
 
-# ----------------- Sidebar and Main Navigation -----------------
 with st.sidebar:
     
     st.markdown("""
@@ -379,10 +358,8 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# --- Check if all necessary files were loaded successfully ---
 files_loaded = all(v is not None for v in [model_main, model_outlier, y_scaler, num_scaler, image_params, history_main, history_outlier, processed_data])
 
-# --- Display the selected page ---
 if files_loaded:
     if selected_page == "Home":
         page_home()
