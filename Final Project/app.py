@@ -96,6 +96,13 @@ def page_home():
     **Objective**:
     Create a fast, accurate proxy model to predict production metrics, enabling rapid scenario evaluation and optimization in reservoir engineering with reduced computational cost.
     
+    **Methodology and Key Findings on the Initial Dataset (756 Samples):**
+    The primary development and optimization of the model were conducted on an initial dataset containing 756 unique reservoir samples. Two main approaches were investigated:
+
+    > 1. Model Trained on All Data: In this primary approach, the model was trained on the complete set of 756 samples, including statistical outliers. After extensive hyperparameter tuning using the Optuna framework, this model achieved an excellent final accuracy with an R² score of approximately `97.7%` on the test set. This was determined to be the most robust and reliable approach.
+
+    > 2. Model Trained After Outlier Removal: As a comparative experiment, a side project was conducted where statistical outliers were first removed from the dataset using the IQR method. A new model was then trained and optimized on this "cleaned" dataset, achieving a final accuracy with an R² score of `93.3%`.
+
     Created by: $$Novin Nekuee (403134029)$$ & $$Soroush Danesh (810403045)$$""")
 
 
@@ -263,8 +270,6 @@ def page_live_prediction():
                         poro_array = poro_array[..., np.newaxis]
 
                     combined_image = np.concatenate([perm_array, poro_array], axis=-1)
-
-                    
 
                     combined_image_scaled = combined_image.copy()
                     if (perm_max - perm_min) != 0:

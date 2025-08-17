@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+/Late Project
 trash/
 outputs/
 build/
@@ -27,6 +28,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+
+*.zip
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
