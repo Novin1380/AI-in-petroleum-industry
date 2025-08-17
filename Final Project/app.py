@@ -27,8 +27,9 @@ def load_model(path):
 def load_data(path):
     try:
         try:
-            return pd.read_csv(path)
-        except:
+            return pd.read_csv(path, encoding="latin1")
+        except Exception as e:
+            print(f"{e}")
             return pd.read_excel(path)
     except Exception as e:
         st.error(f"Error loading data from {path}: {e}")
