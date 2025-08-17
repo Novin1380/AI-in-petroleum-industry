@@ -10,7 +10,7 @@ __pycache__/
 .Python
 /Late Project
 trash/
-outputs/
+# outputs/
 build/
 develop-eggs/
 dist/
