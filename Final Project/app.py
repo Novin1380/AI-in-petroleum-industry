@@ -150,7 +150,7 @@ def page_dataset():
         ]
     )
 
-    if dataset_option == "Clean dataset (Pivoted Data)":
+    if dataset_option == "Clean dataset":
         st.write("This table contains the final, cleaned, and pivoted data used for training the models.")
         if processed_data is not None:
             st.dataframe(processed_data)
